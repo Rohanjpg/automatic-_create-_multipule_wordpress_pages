@@ -1,0 +1,398 @@
+Note :  Update Html file =========================================
+
+=================================================================================================================================================================
+
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{name}}</title>
+    <meta name="description" content="{{address}}"> 
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        line-height: 1.6;
+      }
+
+      .contractor-header {
+          display: flex;
+          align-items: center;
+          gap: 20px;
+        
+        }
+        
+        .contractor-logo {
+          width: 80px;
+          height: 80px;
+          border-radius: 8px;
+          object-fit: cover;
+        }
+        
+        .contractor-info {
+          display: flex;
+          flex-direction: column;
+        }
+        
+        .contractor-rating {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          font-size: 16px;
+        }
+        
+        .rating-score {
+          font-weight: bold;
+          color: #f5a623; /* Gold for the score */
+        }
+        
+        .stars {
+          color: #f5a623; /* Gold stars */
+        }
+        
+        .reviews {
+          color: #555;
+          font-size: 14px;
+        }
+        
+        .categories {
+          margin-top: 5px;
+          font-size: 14px;
+          color: #777;
+        }
+        
+
+      section {
+        padding: 20px;
+      }
+
+      .section-title {
+        margin-top: 0;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 5px;
+      }
+
+      footer {
+        background: #f4f4f4;
+        text-align: center;
+        padding: 15px;
+        margin-top: 30px;
+      }
+    
+      .project-grid {
+        padding-right: 265px;
+    }
+        
+     
+    </style>
+  </head>
+  <body>
+  <!-- Slider -->
+  <!-- Slideshow container -->
+  <div class="slideshow-container" style="max-width:90%; position: relative; margin-bottom: 40px; height:400px;">
+
+      <!-- Full-width images with number and caption text -->
+      <div class="mySlides fade" style="display: none; animation-name: fade; animation-duration: 1.5s;">
+      
+        <img src="{{img1}}" style="width:100%; height:400px;">
+      
+      </div>
+    
+      <div class="mySlides fade" style="display: none; animation-name: fade; animation-duration: 1.5s;">
+        
+        <img src="{{img2}}" style="width:100%; height:400px;">
+      
+      </div>
+    
+      <div class="mySlides fade" style="display: none; animation-name: fade; animation-duration: 1.5s;">
+      
+        <img src="{{img3}}" style="width:100%; height:400px;">
+        
+      </div>
+    
+      <!-- Next and previous buttons -->
+      <a class="prev" onclick="plusSlides(-1)" style="cursor: pointer; position: absolute; top: 50%; width: auto; margin-top: -22px; padding: 16px; color: white; font-weight: bold; font-size: 18px; transition: 0.6s ease; border-radius: 0 3px 3px 0; user-select: none;">&#10094;</a>
+      <a class="next" onclick="plusSlides(1)" style="cursor: pointer; position: absolute; top: 50%; right: 0; width: auto; margin-top: -22px; padding: 16px; color: white; font-weight: bold; font-size: 18px; transition: 0.6s ease; border-radius: 3px 0 0 3px; user-select: none;">&#10095;</a>
+    </div>
+    <br>
+    
+  
+    
+  
+    
+    
+        
+  <!-- Header  -->
+
+      <header class="contractor-header" style="display: flex; align-items: center; font-family: sans-serif; margin-bottom: 20px;">
+        <div style="width:100px; height:100px; border-radius: 8px; object-fit: cover; margin-right: 20px;">
+
+          <img src="{{logo}}" alt="{{categories}}" style="width: 100%; height: 100%;  object-fit: cover;">
+          
+
+        </div>
+          
+          <div class="contractor-info" style="display: flex; flex-direction: column;">
+            <div style=" align-items: center;">
+              <h1 style="font-size: 26px; margin: 0; margin-right: 10px;">{{name}}</h1><br>
+              <div class="contractor-rating" style="display: flex; align-items: center;">
+                <span class="rating-score" style="color: #fbbf24; font-weight: bold; font-size: 16px; margin-right: 4px;">{{rating}}</span>
+                <span class="stars" style="color: #fbbf24; font-size: 16px; margin-right: 6px;">{{stars}}</span>
+                <span class="reviews" style="color: #555; font-size: 14px;">{{reviewCount}} Reviews</span>
+              </div>
+            </div>
+            <div style="margin-top: 6px;">
+              <h5 class="categories" style="color: #555; font-size: 16px; margin: 0;">{{categories}}</h5>
+            </div>
+          </div>
+        </header>
+        
+        <!-- Action buttons -->
+        <div style="display: flex; gap: 12px; font-family: sans-serif; margin-top: 10px;">
+              
+          <button id="Write_Review_button" style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; border: 1px solid #e5e2d8; border-radius: 6px; background: #fff; cursor: pointer; font-weight: bold; font-size: 14px;">
+              <span style="font-size: 16px;">☆</span> Write a Review
+            </button>
+
+          <button id="share" style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; border: 1px solid #e5e2d8; border-radius: 6px; background: #fff; cursor: pointer; font-weight: bold; font-size: 14px;">
+            <span style="font-size: 16px;">⤴</span> Share
+          </button>
+        
+          <p>[contractor_email_form]</p>
+
+         
+
+        </div>
+        
+        <!-- popup massage  -->
+
+
+        
+        
+        
+  <!-- nav bar -->
+        <nav class="profile-nav" style="display: flex;   font-family: sans-serif;  margin-top:10px;">
+      <div style="display: flex; gap: 24px; border-bottom: 6px solid black    ; font-size: 16px; font-weight: 500; padding-bottom: 8px;">
+          <a href="#about" style="color: #4a4a4a; text-decoration: none; font-size: 16px; font-weight: 500;" id="About_click">  About Us</a>
+          <a href="#projects" style="color: #4a4a4a; text-decoration: none; font-size: 16px; font-weight: 500;">Projects</a>
+          <a href="#business" style="color: #4a4a4a; text-decoration: none; font-size: 16px; font-weight: 500;">Business</a>
+          <a href="#reviews" style="color: #4a4a4a; text-decoration: none; font-size: 16px; font-weight: 500;" id="Reviews_click">Reviews</a>
+      </div>
+        </nav>
+        
+    <!-- ABOUT US -->
+
+    <section id="about">
+      <div>
+
+        <h2 class="section-title" style="margin-top: 15px;">About Us</h2>
+      <p>{{tagline}}</p>
+      <div id="about-text" style="max-height: 100px; overflow: hidden; transition: max-height 0.5s ease;">
+        <p>{{about}}</p>
+        <h2 class="section-title" style="margin-top: 15px;">Services Provided</h2>
+        <p>{{servicesProvided}}</p>
+        <h2 class="section-title" style="margin-top: 15px;">Areas Served</h2>
+        <p>{{areasServed}}</p>
+        <h2 class="section-title" style="margin-top: 15px;">Category</h2>
+        <p>{{categories}}</p>
+      </div>
+      <button onclick="toggleAbout()" id="read-more-btn" style="background: none; border: none; color: #000; font-weight: bold; cursor: pointer; margin-top: 10px;">
+        Read More <span style="display: inline-block; transform: rotate(0deg); transition: transform 0.3s;">&#9660;</span>
+      </button>
+      
+      </div>
+     
+    </section>
+
+  <!-- PROJECTS -->
+
+
+
+    <!-- auto-fit -->
+
+    <section id="projects" style="padding: 40px; padding-left:5px; ">
+      <h2 class="section-title" style="font-size: 24px; font-weight: bold; margin-bottom: 20px;">Projects</h2>
+
+    
+
+      <div class="project-grid" style="display: grid; grid-template-columns: repeat(2, minmax(300px, 1fr)); gap: 40px;">
+        
+        <div class="project-card" id="Project_d"  data-img-column="project_img1" style="background: #fff; cursor: pointer;  border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);  width:400px; height:450px;">
+          <div class="project-image" style="position: relative; ">
+            <img src="{{project_img1}}" alt="{{categories}}" style="width: 100%; height: 300px; display: block;">
+            <span class="image-count" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.6); color: #fff; padding: 5px 10px; border-radius: 20px; font-size: 14px;">📷 {{project_img1_count}}</span>
+          </div>
+          <div class="project-info" style="padding: 15px;">
+            <h3 style="margin: 0 0 10px; font-size: 18px;">Upper East Side Atelier</h3>
+            <p style="margin: 0;"><a href="#" style="text-decoration: none; color: #555;">New York, NY</a></p>
+          </div>
+        </div>
+    
+        <div class="project-card" id="Project_d" data-img-column="project_img2" style="background: #fff; cursor: pointer; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);  width:400px; height:450px;">
+          <div class="project-image" style="position: relative;" >
+            <img src="{{project_img2}}" alt="{{categories}}" style="width: 100%; height: 300px; display: block;">
+            <span class="image-count" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.6); color: #fff; padding: 5px 10px; border-radius: 20px; font-size: 14px;">📷 {{project_img2_count}}</span>
+          </div>
+          <div class="project-info" style="padding: 15px;">
+            <h3 style="margin: 0 0 10px; font-size: 18px;">Upper East Side Atelier</h3>
+            <p style="margin: 0;"><a href="#" style="text-decoration: none; color: #555;">New York, NY</a></p>
+          </div>
+        </div>
+
+        <div class="project-card" id="Project_d" data-img-column="project_img3" style="background: #fff; cursor: pointer; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);  width:400px; height:450px;">
+          <div class="project-image" style="position: relative;" >
+            <img src="{{project_img3}}" alt="{{categories}}" style="width: 100%; height: 300px; display: block;">
+            <span class="image-count" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.6); color: #fff; padding: 5px 10px; border-radius: 20px; font-size: 14px;">📷 {{project_img3_count}}</span>
+          </div>
+          <div class="project-info" style="padding: 15px;">
+            <h3 style="margin: 0 0 10px; font-size: 18px;">Upper East Side Atelier</h3>
+            <p style="margin: 0;"><a href="#" style="text-decoration: none; color: #555;">New York, NY</a></p>
+          </div>
+        </div>
+
+        <div class="project-card" id="Project_d" data-img-column="project_img4" style="background: #fff; cursor: pointer; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);  width:400px; height:450px;">
+          <div class="project-image" style="position: relative;" >
+            <img src="{{project_img4}}" alt="{{categories}}" style="width: 100%; height: 300px; display: block;">
+            <span class="image-count" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.6); color: #fff; padding: 5px 10px; border-radius: 20px; font-size: 14px;">📷 {{project_img4_count}}</span>
+          </div>
+          <div class="project-info" style="padding: 15px;">
+            <h3 style="margin: 0 0 10px; font-size: 18px;">Upper East Side Atelier</h3>
+            <p style="margin: 0;"><a href="#" style="text-decoration: none; color: #555;">New York, NY</a></p>
+          </div>
+        </div>
+    
+      </div>
+    </section>
+    
+    <!-- BUSINESS -->
+    <h2 style="font-size: 22px; font-weight: 600; margin-bottom: 20px;">Business Details</h2><br>
+    <section id="business" style="margin: 30px 10px; font-family: Arial, sans-serif; display:flex;">
+      
+     
+      <div style="display: flex; flex-wrap: wrap; justify-content: center;">
+       
+        <!-- Left Column -->
+        <div style="flex: 1; min-width: 280px; max-width: 50%;">
+          <p style="margin-bottom: 15px;" class="current_business">
+            <strong >Business Name</strong>
+         <p id="current_business">{{name}}</p>
+          </p>
+    
+          <p style="margin-bottom: 15px;" class="current_number">
+            <strong >Phone Number</strong>
+           <p id="current_number">{{phone}}</p> 
+          </p>
+    
+          <p style="margin-bottom: 15px;" class="current_website">
+            <strong>Website</strong>
+            <a href="{{website}}" target="_blank" id="current_website" style="color: black; text-decoration: none; font-weight: 500;">
+              {{website}} <span style="display: inline-block; margin-left: 5px;">🔗</span>
+            </a>
+          </p>
+
+          <p style="margin-bottom: 15px;" class="current_email">
+            <strong> Email </strong>
+            <p id="current_email" style="color: black;  font-weight: 500;">{{email}}</p>
+
+          </p><br><br>
+    
+          <p style="margin-bottom: 15px;" class="current_address">  
+            <strong >Address</strong>
+            <p id="current_address">{{address}}</p>
+          </p>
+          <p>[contractor_location address="{{address}}"]
+          </p>
+        </div>
+    
+        <!-- Right Column -->
+        <div style="flex: 1; min-width: 220px; max-width: 40%; margin-left:40px;">
+          <p style="margin-bottom: 15px;">
+            <strong style="display: block;">Typical Job Cost</strong>
+            $25,000 - 10 million<br>
+            <!-- <a href="#" style="font-size: 14px; color: #000; text-decoration: none;">Read More ▼</a> -->
+          </p>
+    
+          <p style="margin-bottom: 15px;">
+            <strong style="display: block;">Followers</strong>
+            657 Followers
+          </p>
+    
+          <p style="margin-bottom: 15px;">
+            <strong style="display: block;">Socials</strong>
+            <span style="display: flex; gap: 10px; margin-top: 5px;">
+              <a href="#" style="text-decoration: none; font-size: 18px;">🔵</a>
+              <a href="#" style="text-decoration: none; font-size: 18px;">❌</a>
+              <a href="#" style="text-decoration: none; font-size: 18px;">🔗</a>
+            </span>
+          </p>
+        </div>
+      </div>
+      <div style="width:50%">    [submit_review_form] </div>
+      
+     
+    </section>
+  
+    <!-- Review  -->
+
+    <!-- <section id="Reviews">
+      <h2>Reviews</h2>
+      <div style="border: 1px solid #ccc; padding:10px; width:80%; border-radius: 8px;">
+    
+        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+          <p style="color: #FFD700; font-size: 20px; margin: 0;">{{stars}}</p>
+          <h5 style="margin: 0 0 0 10px; font-weight: bold; color: #555;">{{review-name}}</h5>
+        </div>
+    
+        <p style="color: #333; line-height: 1.5; margin: 0 0 10px 0;">{{comments}}</p>
+    
+        <p style="margin: 0; margin-bottom: 20px;">[show_reviews]</p><br>
+      </div>
+    </section> -->
+    
+
+<!-- garlly images popup  -->
+[contractor_gallery] 
+   
+
+
+<!-- submit reviews  -->
+       
+
+       
+
+  </body>
+ 
+  <script>
+    function hideSectionIfEmpty(contentId, labelClass, placeholder = "", isLink = false) {
+      const contentEl = document.getElementById(contentId);
+      const labelEl = document.querySelector("." + labelClass);
+  
+      if (contentEl) {
+        const text = contentEl.innerText?.trim() || "";
+        const href = isLink ? contentEl.getAttribute("href")?.trim() : null;
+  
+        const isEmpty =
+          !text ||
+          text === placeholder ||
+          text.includes("{{") ||
+          (isLink && (!href || href === placeholder || href.includes("{{")));
+  
+        if (isEmpty) {
+          contentEl.style.display = "none";
+          if (labelEl) labelEl.style.display = "none";
+        }
+      }
+    }
+  
+    document.addEventListener("DOMContentLoaded", function () {
+      hideSectionIfEmpty("current_business", "current_business", "{{name}}");
+      hideSectionIfEmpty("current_number", "current_number", "{{phone}}");
+      hideSectionIfEmpty("current_website", "current_website", "{{website}}", true);
+      hideSectionIfEmpty("current_email", "current_email", "{{email}}");
+      hideSectionIfEmpty("current_address", "current_address", "{{address}}");
+    });
+  </script>
+  
+  </html>

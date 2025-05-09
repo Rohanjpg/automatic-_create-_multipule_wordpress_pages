@@ -1,0 +1,1225 @@
+Note : automatic remove invalid image from projects_1,2,3,4
+
+
+<?php
+/*
+Plugin Name: Contractor Page Generator
+Description: Automatically generates contractor pages from a CSV file using an HTML template.
+Version: 1.2
+Author: Bhagwan Singh
+*/
+
+function cpg_load_csv_data_as_array($csv_file_path) {
+    $data = [];
+    if (!file_exists($csv_file_path)) return $data;
+
+    if (($handle = fopen($csv_file_path, "r")) !== FALSE) {
+        $headers = fgetcsv($handle); // First row = column names
+        while (($row = fgetcsv($handle)) !== FALSE) {
+            $rowData = array_combine($headers, $row);
+
+            // Add image count for each project_img column
+            foreach (['project_img1', 'project_img2', 'project_img3','project_img4'] as $col) {
+                $countKey = $col . '_count';
+                $rowData[$countKey] = !empty($rowData[$col]) ? count(array_filter(explode('|', $rowData[$col]))) : 0;
+            }
+
+            // Parse socialLinks
+            if (!empty($rowData['socialLinks'])) {
+                $socials = explode(';', $rowData['socialLinks']);
+                $icons_html = '';
+                foreach ($socials as $link) {
+                    $link = trim($link);
+                    if (strpos($link, 'facebook.com') !== false) {
+                        $icons_html .= '<a href="' . esc_url($link) . '" target="_blank"><span class="dashicons dashicons-facebook"></span></a> ';
+                    } elseif (strpos($link, 'instagram.com') !== false) {
+                        $icons_html .= '<a href="' . esc_url($link) . '" target="_blank"><span class="dashicons dashicons-instagram"></span></a> ';
+                    } elseif (strpos($link, 'youtube.com') !== false || strpos($link, 'youtu.be') !== false) {
+                        $icons_html .= '<a href="' . esc_url($link) . '" target="_blank"><span class="dashicons dashicons-video-alt3"></span></a> ';
+                    } else {
+                        $icons_html .= '<a href="' . esc_url($link) . '" target="_blank"><span class="dashicons dashicons-admin-site"></span></a> ';
+                    }
+                }
+                $rowData['socialIcons'] = $icons_html;
+            } else {
+                $rowData['socialIcons'] = '';
+            }
+
+            $data[] = $rowData;
+        }
+        fclose($handle);
+    }
+    return $data;
+}
+
+
+function cpg_generate_star_icons($rating) {
+    $fullStars = max(0, min(5, intval($rating))); // Clamp between 0 and 5
+    return str_repeat('&#11088;', $fullStars); // Unicode star (⭐)
+
+    
+}
+
+function cpg_generate_pages_from_csv($csv_path = null) {
+    $csv_path = $csv_path ?: plugin_dir_path(__FILE__) . 'data.csv';
+    $template_path = plugin_dir_path(__FILE__) . 'template.html';
+
+    if (!file_exists($csv_path) || !file_exists($template_path)) {
+        echo '<div class="notice notice-error"><p>CSV or template file not found.</p></div>';
+        return;
+    }
+
+    $contractors = cpg_load_csv_data_as_array($csv_path);
+    $template = file_get_contents($template_path);
+    $created = 0;
+    $skipped = 0;
+
+    foreach ($contractors as $contractor) {
+        // Skip if all image fields are empty
+        $imageFields = ['project_img1', 'project_img2', 'project_img3', 'project_img4', 'img1', 'img2', 'img3'];
+        $hasImages = false;
+    
+        foreach ($imageFields as $imgField) {
+            if (!empty($contractor[$imgField])) {
+                $hasImages = true;
+                break;
+            }
+        }
+    
+        if (!$hasImages) {
+            $skipped++;
+            continue; // Skip this contractor
+        }
+    
+        $title = !empty($contractor['name']) ? $contractor['name'] : 'Untitled Contractor';
+        $content = $template;
+    
+        
+
+        // Default fallback values
+        $placeholders = [
+            'name' => '',
+            'logo' => '',
+            'about' => '',
+            'projects' => '',
+            'phone' => '',
+            'email' => '',
+            'website' => '',
+            'address' => '',
+            'revenue' => '',
+            'rating' => '',
+            'reviewCount' => '',
+            'categories' => '',
+            'tagline'  => '',
+            'servicesProvided' => '',
+            'areasServed' => '',
+            'projects images' => '',
+            'project_img1' => '',
+            'project_img2' => '',
+            'project_img3' => '',
+            'project_img4' => '',
+            'img1' => 'Not found',
+            'img2' => 'Not found',
+            'img3' => 'Not found',
+            'project_img1_count' => '',
+            'project_img2_count' => '',
+            'project_img3_count' => '',
+            'project_img4_count' => '',
+            'comments'=> '',
+            'review-name' => '',
+            'socialIcons' => '',
+            'followers' => '',
+            'revenue' => '',
+
+        ];
+
+
+        
+        foreach ($placeholders as $key => $default) {
+            $value = isset($contractor[$key]) && trim($contractor[$key]) !== '' ? $contractor[$key] : $default;
+        
+            if (in_array($key, ['project_img1', 'project_img2', 'project_img3', 'project_img4'])) {
+                $images = explode('|', $value);
+                $value = trim($images[0]);
+            }
+        
+            // Important: don't escape HTML for socialIcons so icons render
+            if ($key === 'socialIcons') {
+                $content = str_replace('{{' . $key . '}}', $value, $content);
+            } else {
+                $content = str_replace('{{' . $key . '}}', esc_html($value), $content);
+            }
+        
+            if ($key === 'rating') {
+                $numeric_rating = is_numeric($value) ? floatval($value) : 0;
+            }
+        }
+        
+        
+        $stars_html = cpg_generate_star_icons($numeric_rating ?? 0);
+        $content = str_replace('{{stars}}', $stars_html, $content);
+
+      if (!get_page_by_title($title, OBJECT, 'page')) {
+    $page_id = wp_insert_post([
+        'post_title'   => $title,
+        'post_content' => $content,
+        'post_status'  => 'publish',
+        'post_type'    => 'page',
+    ]);
+
+    // 🔐 Save contractor email to post meta
+    if (!empty($contractor['email'])) {
+        update_post_meta($page_id, 'contractor_email', sanitize_email($contractor['email']));
+    }
+
+    $created++;
+}
+
+    }
+    echo '<div class="updated notice is-dismissible"><p>Pages created: ' . $created . ', Skipped: ' . $skipped . '</p></div>';  
+}
+
+// Admin Menu
+add_action('admin_menu', 'cpg_add_admin_menu');
+
+function cpg_add_admin_menu() {
+    add_menu_page(
+        'Contractor Generator',
+        'Contractor Generator',
+        'manage_options',
+        'contractor-generator',
+        'cpg_admin_page',
+        'dashicons-admin-page',
+        6
+    );    
+}
+
+// Admin Page
+function cpg_admin_page() {
+    ?>
+    <div class="wrap">
+        <h1>Contractor Page Generator</h1>
+        <form method="post" enctype="multipart/form-data">
+            <?php wp_nonce_field('cpg_generate_pages_action', 'cpg_nonce'); ?>
+            <p>
+                <label for="csv_file">Choose CSV File:</label><br>
+                <input type="file" name="csv_file" accept=".csv" required>
+            </p>
+            <p>
+                <input type="submit" name="generate_pages" class="button button-primary" value="Generate Pages from CSV">
+            </p>
+        </form>
+    </div>
+    <?php
+
+    if (isset($_POST['generate_pages']) && check_admin_referer('cpg_generate_pages_action', 'cpg_nonce')) {
+        if (!empty($_FILES['csv_file']['tmp_name'])) {
+            $uploaded_file = $_FILES['csv_file'];
+
+            $file_ext = strtolower(pathinfo($uploaded_file['name'], PATHINFO_EXTENSION));
+            if ($file_ext !== 'csv') {
+                echo '<div class="notice notice-error"><p>Invalid file type. Please upload a CSV file.</p></div>';
+                return;
+            }
+
+            $tmp_csv_path = plugin_dir_path(__FILE__) . 'temp_uploaded.csv';
+            if (move_uploaded_file($uploaded_file['tmp_name'], $tmp_csv_path)) {
+
+                cpg_generate_pages_from_csv($tmp_csv_path);
+
+                unlink($tmp_csv_path); // Remove temp file after use
+            } else {
+                echo '<div class="notice notice-error"><p>Failed to upload CSV file.</p></div>';
+            }
+        } else {
+            echo '<div class="notice notice-error"><p>No file selected.</p></div>';
+        }
+    }
+}
+
+
+
+
+// submenu for vandor list --------------------------------------------------------------------------------------------------------------------------------------
+
+
+// Shortcode to display contractor listings with checkboxes and message button :[contractor_list page_category="hello"]
+
+// Shortcode to display contractor listings with unique filtering
+function cpg_display_contractor_list($atts) {
+    $atts = shortcode_atts(
+        [
+            'csv_file' => '',
+            'page_category' => '',
+        ],
+        $atts,
+        'contractor_list'
+    );
+
+    if (empty($atts['csv_file'])) {
+        $atts['csv_file'] = plugin_dir_path(__FILE__) . 'data.csv';
+    }
+
+    $contractors = cpg_load_csv_data_as_array($atts['csv_file']);
+    if (empty($contractors)) {
+        return '<p>No contractors found or unable to load CSV file.</p>';
+    }
+
+    if (!empty($atts['page_category'])) {
+        $contractors = array_filter($contractors, function($contractor) use ($atts) {
+            return isset($contractor['page_category']) &&
+                   strpos(strtolower(trim($contractor['page_category'])), strtolower(trim($atts['page_category']))) !== false;
+        });
+    }
+
+    // Remove duplicate contractors by name, email, or phone (use a unique identifier)
+    $unique_contractors = [];
+    foreach ($contractors as $contractor) {
+        $unique_key = strtolower(trim($contractor['name'])) . '-' . strtolower(trim($contractor['email'])) . '-' . strtolower(trim($contractor['phone']));
+        if (!isset($unique_contractors[$unique_key])) {
+            $unique_contractors[$unique_key] = $contractor;
+        }
+    }
+
+    // $contractors = array_values($unique_contractors); // Re-index the array
+
+// Filter out contractors with an empty logo
+$contractors = array_filter(array_values($unique_contractors), function($contractor) {
+    return !empty($contractor['logo']);
+});
+
+
+    // Start output
+    $output = '<div class="contractor-list">';
+
+    // Add custom CSS
+    $output .= '<style>
+        .contractor-list { display: flex; flex-direction: column; gap: 20px; max-width: 1000px; margin: auto; }
+        .contractor-card { display: flex; background: #fff; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); position: relative; }
+        .contractor-card img.featured-img { width: 280px; height: 100%; object-fit: cover; }
+        .contractor-content { padding: 20px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+        .contractor-header { display: flex; align-items: center; gap: 15px; margin-bottom: 10px; }
+        .contractor-header img.logo { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+        .contractor-title { font-size: 20px; font-weight: 600; }
+        .contractor-badges { display: flex; gap: 10px; margin: 10px 0; font-size: 14px; }
+        .contractor-badge { background-color: #f4f4f4; padding: 6px 10px; border-radius: 5px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+        .contractor-description { font-size: 14px; color: #444; margin-bottom: 10px; }
+        .contractor-meta { font-size: 14px; color: #666; }
+        .contractor-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; }
+        .send-message-btn { background-color: #000; color: #fff; padding: 8px 16px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; text-decoration: none; }
+        .contractor-footer a.profile-link { color: #0073aa; font-weight: 500; text-decoration: none; }
+        .contractor-card-link { text-decoration: none; color: inherit; display: block; }
+        .contractor-card-link:hover .contractor-card { box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); transition: box-shadow 0.3s ease; }
+        .contractor-checkbox-wrapper { margin-bottom: 5px; }
+        .checkbox-label { font-size: 14px; display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+        .send-selected-button { margin: 20px auto 0; display: block; padding: 10px 20px; background-color: #0073aa; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        .contractor-message-popup { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border: 1px solid #ccc; padding: 20px; z-index: 9999; box-shadow: 0 0 15px rgba(0,0,0,0.3); }
+        .popup-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9998; }
+        .popup-close { float: right; cursor: pointer; color: red; font-weight: bold; }
+        @media (max-width: 768px) {
+            .contractor-card { flex-direction: column; }
+            .contractor-card img.featured-img { width: 100%; }
+        }
+        .contractor-checkbox-wrapper{  margin-top:20px; }
+        .contractor-email-checkbox { width:20px; height:20px; }
+    </style>';
+
+    // Send to selected button
+    $output .= '<button class="send-selected-button" onclick="openSelectedMessagePopup()">Send Message to Selected</button>';
+
+    foreach ($contractors as $contractor) {
+        $title = !empty($contractor['name']) ? $contractor['name'] : 'Untitled Contractor';
+        $logo = !empty($contractor['logo']) ? $contractor['logo'] : 'default-logo.png';
+        $rating = !empty($contractor['rating']) ? $contractor['rating'] : '0';
+        $reviewCount = !empty($contractor['reviewCount']) ? $contractor['reviewCount'] : '0';
+        $location = !empty($contractor['address']) ? $contractor['address'] : 'Not available';
+        $featured_image = !empty($contractor['featured_image']) ? $contractor['featured_image'] : '';
+        $about = !empty($contractor['about']) ? $contractor['about'] : '';
+        $about_trimmed = wp_trim_words($about, 20, '...');
+        $email = !empty($contractor['email']) ? $contractor['email'] : '';
+
+        $contractor_page = get_page_by_title($title);
+        $profile_url = $contractor_page ? get_permalink($contractor_page->ID) : '#';
+
+        // Checkbox
+        $output .= '<a href="' . esc_url($profile_url) . '" class="contractor-card-link" target="_blank" rel="noopener noreferrer">';
+        $output .= '<div class="contractor-card">';
+        $output .= '<img class="featured-img" src="' . esc_url($featured_image) . '" alt="' . esc_attr($title) . '">';
+        $output .= '<div class="contractor-content">';
+        $output .= '<div class="contractor-header">';
+        $output .= '<img class="logo" src="' . esc_url($logo) . '" alt="Logo">';
+        $output .= '<div class="contractor-title">' . esc_html($title) . '</div>';
+        $output .= '</div>';
+        $output .= '<div class="contractor-badges">';
+        $output .= '<div class="contractor-badge">⭐ ' . cpg_generate_star_icons($rating) . ' (' . esc_html($reviewCount) . ')</div>';
+        $output .= '<div class="contractor-meta"' . (empty($email) ? ' style="display:none;"' : '') . '>📧 ' . esc_html($email) . '</div>';
+        $output .= '</div>';
+        $output .= '<div class="contractor-description">' . esc_html($about_trimmed) . '</div>';
+        $output .= '<div class="contractor-meta">' . esc_html($location) . ' area</div>';
+        $output .= '<input type="checkbox" class="contractor-email-checkbox" value="' . esc_attr($title . '|' . $profile_url) . '">';
+
+        // if (!empty($email)) {
+        //     $output .= '<div class="contractor-checkbox-wrapper">';
+        //     $output .= '<label class="checkbox-label"><input type="checkbox" class="contractor-email-checkbox" value="' . esc_attr($email) . '"> Send message to ' . esc_html($title) . '</label>';
+        //     $output .= '</div>';
+        // }
+        $output .= '<div class="contractor-footer">';
+        $output .= '<a href="' . esc_url($profile_url) . '" class="profile-link" target="_blank" rel="noopener noreferrer">Read More</a>';
+        $output .= '</div></div></div></a>';
+    }
+
+    // Popup form + overlay
+    $output .= '
+    <div class="popup-overlay" id="popup-overlay"></div>
+    <div class="contractor-message-popup" id="contractor-message-popup">
+        <span class="popup-close" onclick="closeMessagePopup()">❌</span>
+        <h3>Send Message</h3>
+        <form method="post" action="' . admin_url('admin-post.php') . '">
+            <input type="hidden" name="action" value="send_bulk_message">
+            <input type="hidden" name="contractor_cards" id="bulk-card-list">
+
+            <textarea name="message" rows="6" style="width: 100%;" placeholder="Write your message here..."></textarea><br>
+            <button type="submit" class="send-message-btn">Send</button>
+        </form>
+    </div>';
+
+    // JS
+    $output .= '<script>
+        function openSelectedMessagePopup() {
+            const selected = document.querySelectorAll(".contractor-email-checkbox:checked");
+            if (!selected.length) {
+                alert("Please select at least one contractor.");
+                return;
+            }
+            const emails = Array.from(selected).map(cb => cb.value).join(",");
+            document.getElementById("bulk-card-list").value = emails;
+
+            document.getElementById("contractor-message-popup").style.display = "block";
+            document.getElementById("popup-overlay").style.display = "block";
+        }
+        function closeMessagePopup() {
+            document.getElementById("contractor-message-popup").style.display = "none";
+            document.getElementById("popup-overlay").style.display = "none";
+        }
+    </script>';
+
+    $output .= '</div>'; // contractor-list
+    return $output;
+}
+
+
+// Register the shortcode
+function cpg_register_contractors_shortcode() {
+    add_shortcode('contractor_list', 'cpg_display_contractor_list');
+}
+add_action('init', 'cpg_register_contractors_shortcode');
+
+// Handle bulk message submission (optional logic to email)
+add_action('admin_post_send_bulk_message', 'cpg_handle_bulk_email');
+add_action('admin_post_nopriv_send_bulk_message', 'cpg_handle_bulk_email');
+
+function cpg_handle_bulk_email() {
+    if (!empty($_POST['contractor_cards']) && !empty($_POST['message'])) {
+        $cards = explode(',', sanitize_text_field($_POST['contractor_cards']));
+        $message = sanitize_textarea_field($_POST['message']);
+
+        $contractor_info = '';
+        foreach ($cards as $card_entry) {
+            $parts = explode('|', $card_entry); // format: name|url
+            if (count($parts) === 2) {
+                $contractor_info .= "Name: " . sanitize_text_field($parts[0]) . "\n";
+                $contractor_info .= "Profile: " . esc_url_raw($parts[1]) . "\n\n";
+            }
+        }
+
+        $full_message = "Visitor Message:\n\n" . $message . "\n\nContractors Selected:\n\n" . $contractor_info;
+
+        wp_mail('info.indianrugstore@gmail.com', 'Contractor Inquiry from Website', $full_message);
+    }
+
+    wp_redirect(wp_get_referer());
+    exit;
+}
+
+
+
+// garlly images-------------------------------------------------------------------------------------------------------------------------------------------- 
+
+
+// Shortcode: [contractor_gallery]
+function contractor_gallery_popup_shortcode() {
+    ob_start();
+    ?>
+    <div id="contractor-gallery-popup-container"></div>
+
+    <!-- Modal Popup -->
+    <div id="gallery-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); padding-top:200px;  justify-content:center; align-items:center; z-index:9999;">
+        <div style="background:white; padding:20px; max-width:90%; max-height:90%; overflow:auto; border-radius:8px; position:relative;">
+            <button id="close-gallery-btn" style="position:absolute; top:10px; right:10px; background:red; color:white; border:none; padding:5px 10px; border-radius:5px;">X</button>
+            <div id="gallery-content" style="display:grid; grid-template-columns:repeat(4, minmax(200px, 1fr)); gap:15px;"></div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const modal = document.getElementById('gallery-modal');
+        const galleryContent = document.getElementById('gallery-content');
+        const closeBtn = document.getElementById('close-gallery-btn');
+
+        // Click on any .project-card
+        document.body.addEventListener('click', function(e) {
+    const card = e.target.closest('.project-card');
+    if (card) {
+        const nameElement = document.querySelector('.contractor-info h1');
+        if (!nameElement) return;
+
+        const contractorName = nameElement.textContent.trim();
+
+        // Read which image column triggered the click (defaulting to 'project_img1' here)
+        const imgColumn = card.getAttribute('data-img-column') || 'project_img1';
+
+        fetch('<?php echo admin_url('admin-ajax.php'); ?>?action=get_contractor_gallery&name=' 
+              + encodeURIComponent(contractorName) + '&column=' + encodeURIComponent(imgColumn))
+            .then(response => response.text())
+            .then(html => {
+                galleryContent.innerHTML = html;
+                modal.style.display = 'flex';
+            });
+    }
+});
+
+        // Close modal
+        if (closeBtn && modal) {
+            closeBtn.addEventListener('click', function () {
+                modal.style.display = 'none';
+            });
+
+            modal.addEventListener('click', function (e) {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        }
+    });
+    </script>
+    <?php
+    return ob_get_clean();
+}
+add_shortcode('contractor_gallery', 'contractor_gallery_popup_shortcode');
+
+// AJAX handler to load gallery images
+add_action('wp_ajax_get_contractor_gallery', 'cpg_get_contractor_gallery');
+add_action('wp_ajax_nopriv_get_contractor_gallery', 'cpg_get_contractor_gallery');
+
+function cpg_get_contractor_gallery() {
+    $contractor_name = isset($_GET['name']) ? sanitize_text_field($_GET['name']) : '';
+    $column = isset($_GET['column']) ? sanitize_text_field($_GET['column']) : 'project_img1';
+    $csv_path = plugin_dir_path(__FILE__) . 'data.csv';
+    $all_images = [];
+
+    if (($handle = fopen($csv_path, 'r')) !== false) {
+        $header = fgetcsv($handle);
+        while (($data = fgetcsv($handle)) !== false) {
+            $row = array_combine($header, $data);
+            if (trim($row['name']) === $contractor_name && isset($row[$column])) {
+                $images = explode('|', $row[$column]);
+                foreach ($images as $img) {
+                    $trimmed = trim($img);
+                    // Validate image URL by checking headers
+                    if (!empty($trimmed) && @getimagesize($trimmed)) {
+                        $all_images[] = esc_url($trimmed);
+                    }
+                }
+                break;
+            }
+        }
+        fclose($handle);
+    }
+
+    if (!empty($all_images)) {
+        foreach ($all_images as $img) {
+            echo '<img src="' . esc_url($img) . '" style="width:100%; height:auto; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.15);">';
+        }
+    } else {
+        echo '<p>No valid images found for this contractor in ' . esc_html($column) . '.</p>';
+    }
+
+    wp_die();
+}
+
+
+// scroll to reviews seaction by review navbar --------------------------------------------------------------------------------------------------------------- 
+
+function add_reviews_scroll_script() {
+    ?>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const reviewClick = document.getElementById('Reviews_click');
+            const reviewSection = document.getElementById('Reviews');
+
+            if (reviewClick && reviewSection) {
+                reviewClick.addEventListener('click', function (e) {
+                    e.preventDefault();
+
+                    // Get the top position of the target element
+                    const offsetTop = reviewSection.getBoundingClientRect().top + window.pageYOffset;
+
+                    // Optional: Add or subtract offset if needed (e.g., fixed header)
+                    const offset = -80; // adjust this value if you have a sticky header
+
+                    // Scroll with smooth behavior
+                    window.scrollTo({
+                        top: offsetTop + offset,
+                        behavior: 'smooth'
+                    });
+                });
+            }
+        });
+    </script>
+    <?php
+}
+add_action('wp_footer', 'add_reviews_scroll_script');
+
+// scroll to reviews seaction by create review  -------------------------------------------------------------------------------
+    
+function inject_testimonials_scroll_js() {
+    ?>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const triggerButton = document.getElementById('Write_Review_button');
+            const targetSection = document.getElementById('business');
+
+            if (triggerButton && targetSection) {
+                triggerButton.addEventListener('click', function (event) {
+                    event.preventDefault();
+
+                    // Calculate the target scroll position
+                    const targetPosition = targetSection.getBoundingClientRect().top + window.scrollY;
+
+                    // Optional adjustment (e.g., for fixed headers)
+                    const adjustment = -80;
+
+                    // Smooth scrolling to section
+                    window.scrollTo({
+                        top: targetPosition + adjustment,
+                        behavior: 'smooth'
+                    });
+                });
+            }
+        });
+    </script>
+    <?php
+}
+
+add_action('wp_footer', 'inject_testimonials_scroll_js');
+
+
+
+
+
+
+// google map pin code locations ---------------------------------------------------------------------------------------------------------------
+
+
+
+function contractor_location_shortcode($atts) {
+    $atts = shortcode_atts([
+        'address' => '',
+    ], $atts);
+
+    $address = trim($atts['address']);
+    if (empty($address)) return '';
+
+    $encoded_address = urlencode($address);
+    $map_link = "https://www.google.com/maps?q={$encoded_address}";
+
+    $output = '<div class="contractor-location" style="display: flex; align-items: center; gap: 6px; font-size: 16px; border:2px solid; margin-top:10px;">
+                    <span style="font-size: 18px;">📍</span>
+                    <a href="' . esc_url($map_link) . '" target="_blank" style="text-decoration: none; color: #333;">' . esc_html($address) . '</a>
+               </div>';
+
+    return $output;
+}
+add_shortcode('contractor_location', 'contractor_location_shortcode');
+
+
+
+// send email------------------------------------------------------------------------------------------------------------------------------ 
+
+
+//  Add the Contact Form shortcode [send_email_from_dom] massage button
+ function send_email_from_dom_shortcode() {
+    ob_start();
+    ?>
+    <!-- Button to open the popup form -->
+    <button id="openPopupBtn" style="background: #0073aa; color: #fff; align-items: center; gap: 8px; padding: 8px 14px; border: 1px solid #e5e2d8; border-radius: 6px;  cursor: pointer; font-weight: bold; font-size: 14px;">
+      Message
+    </button>
+
+    <!-- Popup Form Modal -->
+    <div id="popupForm" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
+        <div style="background: #fff; padding: 20px; border-radius: 8px; max-width: 500px; width: 100%; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); position: relative;">
+            <span id="closePopup" style="position: absolute; top: 10px; right: 10px; cursor: pointer; font-size: 18px;">&times;</span>
+            <form id="contactForm" action="javascript:void(0);" style="display: flex; flex-direction: column;">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <input type="text" id="user_name" name="user_name" placeholder="Your Name" required 
+                           style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px;">
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <input type="email" id="user_email" name="user_email" placeholder="Your Email" required
+                           style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px;">
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <textarea id="user_message" name="user_message" placeholder="Message" required 
+                              style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; resize: vertical; height: 120px;"></textarea>
+                </div>
+                
+                <button type="submit" style="padding: 12px 20px; background-color: #333; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; transition: background-color 0.3s ease;">
+                    Send Message
+                </button>
+            </form>
+            
+            <!-- Loading Spinner -->
+            <div id="loading" style="display: none; text-align: center; margin-top: 20px;">
+                <div class="loader" style="border: 4px solid #f3f3f3; border-top: 4px solid #333; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite;"></div>
+                <p style="color: #333; font-size: 16px;">Sending...</p>
+            </div>
+        </div>
+    </div>
+
+    <?php
+    return ob_get_clean();
+}
+add_shortcode('contractor_email_form', 'send_email_from_dom_shortcode');
+
+// Enqueue JavaScript for handling the popup, loading indicator, and form submission
+function enqueue_send_email_from_dom_script() {
+    ?>
+    <script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get the button, popup, and loading spinner elements
+        var openPopupBtn = document.getElementById('openPopupBtn');
+        var popupForm = document.getElementById('popupForm');
+        var closePopup = document.getElementById('closePopup');
+        var loadingIndicator = document.getElementById('loading');
+        
+        // Open the popup when the button is clicked
+        openPopupBtn.addEventListener('click', function() {
+            popupForm.style.display = 'flex';  // Show the popup
+        });
+
+        // Close the popup when the close button is clicked
+        closePopup.addEventListener('click', function() {
+            popupForm.style.display = 'none';  // Hide the popup
+        });
+
+        // Close the popup when clicking outside the popup content
+        window.addEventListener('click', function(event) {
+            if (event.target === popupForm) {
+                popupForm.style.display = 'none';  // Hide the popup if clicked outside
+            }
+        });
+
+        // Close the popup when the ESC key is pressed
+        window.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                popupForm.style.display = 'none';  // Hide the popup when ESC is pressed
+            }
+        });
+
+        // Handle the form submission
+        var contactForm = document.getElementById('contactForm');
+        
+        if (contactForm) {
+            contactForm.addEventListener('submit', function(e) {
+                e.preventDefault(); // Prevent the default form submission
+
+                // Show loading spinner
+                loadingIndicator.style.display = 'block';
+
+                // Collect form data
+                var user_name = document.getElementById('user_name').value;
+                var user_email = document.getElementById('user_email').value;
+                var user_message = document.getElementById('user_message').value;
+
+                // Get contractor email dynamically from the DOM
+                var contractor_email_element = document.getElementById('current_email');
+                var contractor_email = contractor_email_element ? contractor_email_element.textContent.replace('Email:', '').trim() : '';
+
+                if (!contractor_email) {
+                    alert('Contractor email not found on this page.');
+                    loadingIndicator.style.display = 'none';  // Hide loading indicator
+                    return;
+                }
+
+                // Create FormData to send to the server
+                var formData = new FormData();
+                formData.append('action', 'send_message_from_dom');
+                formData.append('user_name', user_name);
+                formData.append('user_email', user_email);
+                formData.append('user_message', user_message);
+                formData.append('contractor_email', contractor_email); // Send the contractor's email
+
+                // Perform the AJAX request
+                fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Accept': 'application/json',
+                    },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    loadingIndicator.style.display = 'none';  // Hide loading indicator
+                    if (data.success) {
+                        alert(data.data); // Show success message
+                        popupForm.style.display = 'none';  // Hide the popup after success
+                    } else {
+                        alert('Error: ' + data.data); // Show error message
+                    }
+                })
+                .catch(error => {
+                    loadingIndicator.style.display = 'none';  // Hide loading indicator
+                    console.error('Error:', error);
+                    alert('There was an error sending your message.');
+                });
+            });
+        }
+    });
+    </script>
+    <?php
+}
+add_action('wp_footer', 'enqueue_send_email_from_dom_script');
+
+// Handle the email sending logic via AJAX
+function send_email_from_dom() {
+    // Check if the form fields are set
+    if (isset($_POST['user_name'], $_POST['user_email'], $_POST['user_message'], $_POST['contractor_email'])) {
+        $user_name = sanitize_text_field($_POST['user_name']);
+        $user_email = sanitize_email($_POST['user_email']);
+        $user_message = sanitize_textarea_field($_POST['user_message']);
+        $contractor_email = sanitize_email($_POST['contractor_email']); // Get contractor email dynamically
+
+        // Subject and message for the email
+        $subject = 'Message from ' . $user_name;
+        $message = "Message from: $user_name\nEmail: $user_email\n\n$user_message";
+
+        // Send the email to the contractor's email
+        $headers = array('Content-Type: text/plain; charset=UTF-8');
+        $mail_sent = wp_mail($contractor_email, $subject, $message, $headers);
+
+        // Return success or failure
+        if ($mail_sent) {
+            wp_send_json_success('Message sent successfully!');
+        } else {
+            wp_send_json_error('There was an error sending your message.');
+        }
+    } else {
+        wp_send_json_error('Required fields are missing.');
+    }
+
+    wp_die(); // this is required to terminate the AJAX request properly
+}
+
+// Hook into WordPress AJAX action [send_email_from_dom]
+add_action('wp_ajax_send_message_from_dom', 'send_email_from_dom');
+add_action('wp_ajax_nopriv_send_message_from_dom', 'send_email_from_dom'); // For non-logged-in users
+
+
+
+// review form------------------------------------------------------------------------------------------------------------------------------------------
+
+// Enqueue inline AJAX script
+add_action('wp_enqueue_scripts', function () {
+    wp_enqueue_script('ajax-review-script', '', [], '', true);
+    wp_add_inline_script('ajax-review-script', "
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.querySelector('#review-form');
+            if (!form) return;
+
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();  // Prevent the default form submission
+                const formData = new FormData(form);  // Collect form data
+                fetch('" . admin_url('admin-ajax.php') . "', {
+                    method: 'POST',
+                    body: new URLSearchParams([...formData, ['action', 'submit_review']])
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        // Show success message
+                        document.querySelector('#review-success').innerHTML = '<p>✅ ' + data.message + '</p>';
+
+                        // Target the #reviews-display section and update it with the new review HTML
+                        const reviewsDisplay = document.querySelector('#reviews-display');
+                        if (reviewsDisplay) {
+                            reviewsDisplay.innerHTML = data.reviews_html;  // Update the review list with the new reviews
+                        }
+
+                        form.reset();  // Reset the form after submission
+                    } else {
+                        document.querySelector('#review-success').innerHTML = '<p>❌ ' + data.message + '</p>';
+                    }
+                })
+                .catch(err => {
+                    console.error('Error submitting review:', err);
+                    document.querySelector('#review-success').innerHTML = '<p>❌ There was an error submitting your review. Please try again.</p>';
+                });
+            });
+        });
+    ");
+});
+
+// Handle review submission
+add_action('wp_ajax_submit_review', 'submit_review_callback');
+add_action('wp_ajax_nopriv_submit_review', 'submit_review_callback');
+
+function submit_review_callback() {
+    $name = sanitize_text_field($_POST['reviewer_name']);
+    $email = sanitize_email($_POST['reviewer_email']);
+    $rating = intval($_POST['rating']);
+    $review_text = sanitize_textarea_field($_POST['review_text']);
+    $date = current_time('Y-m-d');
+
+    if (empty($name) || empty($email) || empty($review_text)) {
+        wp_send_json(['success' => false, 'message' => 'All fields are required.']);
+    }
+
+    $new_review = compact('name', 'email', 'rating', 'review_text', 'date');
+
+    $reviews = get_option('custom_reviews', []);    
+    array_unshift($reviews, $new_review);
+    update_option('custom_reviews', $reviews);
+
+    wp_send_json([
+        'success' => true,
+        'message' => 'Review submitted successfully!',
+        'reviews_html' => get_reviews_html($reviews)
+    ]);
+}
+
+// Generate reviews HTML
+function get_reviews_html($reviews) {
+    ob_start();
+    foreach ($reviews as $review) {
+        echo '<div class="review">';
+        echo '<h4>' . esc_html($review['name']) . ' <span class="rating">(' . esc_html($review['rating']) . ' stars)</span></h4>';
+        echo '<p>' . esc_html($review['review_text']) . '</p>';
+        echo '<p><em>Reviewed on ' . esc_html($review['date']) . '</em></p>';
+        echo '</div>';
+    }
+    return ob_get_clean();
+}
+
+// [review_form] shortcode
+function review_form_shortcode() {
+    ob_start(); ?>
+    <style>
+        .review-form { background: #f9f9f9; padding: 20px; border-radius: 8px; max-width: 600px; margin: 20px auto; }
+        .review-form h3 { font-size: 22px; margin-bottom: 10px; }
+        .form-field { margin-bottom: 15px; }
+        .form-field label { display: block; font-weight: bold; margin-bottom: 5px; }
+        .form-field input, .form-field select, .form-field textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        .form-field textarea { height: 100px; }
+        .form-field input[type="submit"] { background: #0073aa; color: white; border: none; cursor: pointer; }
+        .form-field input[type="submit"]:hover { background: #005177; }
+    </style>
+    <div class="review-form">
+        <h3>Submit a Review</h3>
+        <div id="review-success"></div>
+        <form id="review-form">
+            <div class="form-field">
+                <label for="reviewer_name">Your Name:</label>
+                <input type="text" name="reviewer_name" required>
+            </div>
+            <div class="form-field">
+                <label for="reviewer_email">Your Email:</label>
+                <input type="email" name="reviewer_email" required>
+            </div>
+            <div class="form-field">
+                <label for="rating">Rating:</label>
+                <select name="rating" required>
+                    <option value="5">★★★★★</option>
+                    <option value="4">★★★★</option>
+                    <option value="3">★★★</option>
+                    <option value="2">★★</option>
+                    <option value="1">★</option>
+                </select>
+            </div>
+            <div class="form-field">
+                <label for="review_text">Your Review:</label>
+                <textarea name="review_text" required></textarea>
+            </div>
+            <div class="form-field">
+                <input type="submit" value="Submit Review">
+            </div>
+        </form>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+add_shortcode('review_form', 'review_form_shortcode');
+
+// [display_reviews] shortcode
+function display_reviews_shortcode() {
+    $reviews = get_option('custom_reviews', []);
+    ob_start(); ?>
+    <style>
+        .reviews-list { background: #f9f9f9; padding: 20px; border-radius: 8px; max-width: 600px; margin: 20px auto; }
+        .review { background: white; padding: 15px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 15px; }
+        .rating { color: #ffcc00; font-weight: bold; }
+        .review em { color: #888; font-size: 14px; }
+    </style>
+    <div class="reviews-list" id="reviews-display">
+        <?php echo get_reviews_html($reviews); ?>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+add_shortcode('display_reviews', 'display_reviews_shortcode');
+
+//  share icons 
+
+function custom_share_popup_script() {
+    if (is_admin()) return; // Don't load in admin area
+
+    ?>
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const shareBtn = document.getElementById("share");
+
+        if (!shareBtn) return;
+
+        // Create popup container
+        const popup = document.createElement("div");
+        popup.id = "share-popup";
+        popup.style.display = "none";
+        popup.style.position = "absolute";
+        popup.style.top = "60px";
+        popup.style.left = "20px";
+        popup.style.background = "#fff";
+        popup.style.border = "1px solid #ddd";
+        popup.style.borderRadius = "8px";
+        popup.style.padding = "10px";
+        popup.style.boxShadow = "0 4px 10px rgba(0,0,0,0.1)";
+        popup.style.zIndex = "999";
+
+        const pageUrl = encodeURIComponent(window.location.href);
+        const pageTitle = encodeURIComponent(document.title);
+
+        popup.innerHTML = `
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <a href="https://wa.me/?text=${pageTitle}%20${pageUrl}" target="_blank" style="text-decoration: none;">
+                    <button style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid #25D366; background: #eafaf1; color: #075e54; border-radius: 6px; cursor: pointer;">
+                        📱 WhatsApp
+                    </button>
+                </a>
+                <a href="https://www.facebook.com/sharer/sharer.php?u=${pageUrl}" target="_blank" style="text-decoration: none;">
+                    <button style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid #1877f2; background: #eef3ff; color: #1877f2; border-radius: 6px; cursor: pointer;">
+                        📘 Facebook
+                    </button>
+                </a>
+               
+            </div>
+        `;
+
+        document.body.appendChild(popup);
+
+        shareBtn.addEventListener("click", function (e) {
+            popup.style.display = popup.style.display === "none" ? "block" : "none";
+            const rect = shareBtn.getBoundingClientRect();
+            popup.style.top = `${rect.bottom + window.scrollY + 8}px`;
+            popup.style.left = `${rect.left + window.scrollX}px`;
+        });
+
+        document.addEventListener("click", function (e) {
+            if (!popup.contains(e.target) && e.target !== shareBtn) {
+                popup.style.display = "none";
+            }
+        });
+    });
+    </script>
+    <?php
+}
+add_action('wp_footer', 'custom_share_popup_script');
+
+// review submit form ---------------------------------------------------------------------------------------------------------------
+
+// Create the custom reviews table (runs once)
+function custom_review_table_check() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'custom_reviews';
+
+    if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
+        $charset_collate = $wpdb->get_charset_collate();
+        $sql = "CREATE TABLE $table_name (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            page_id bigint(20) NOT NULL,
+            name varchar(100) NOT NULL,
+            rating int NOT NULL,
+            comment text NOT NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY  (id)
+        ) $charset_collate;";
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        dbDelta($sql);
+    }
+}
+add_action('after_setup_theme', 'custom_review_table_check');
+
+// Enqueue inline JavaScript to toggle form visibility
+add_action('wp_enqueue_scripts', function () {
+    wp_add_inline_script('jquery', "
+        jQuery(document).ready(function($) {
+            $('#Write_Review_button').on('click', function(e) {
+                e.preventDefault();
+                $('#review-form-container').slideToggle();
+            });
+        });
+    ");
+});
+
+// Handle form submission
+add_action('init', function () {
+    if (isset($_POST['submit_review'])) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'custom_reviews';
+
+        $name = sanitize_text_field($_POST['review_name']);
+        $rating = intval($_POST['review_rating']);
+        $comment = sanitize_textarea_field($_POST['review_comment']);
+        $page_id = intval($_POST['page_id']); // current page ID
+
+        if ($name && $rating && $comment && $page_id) {
+            $wpdb->insert($table_name, [
+                'page_id' => $page_id,
+                'name' => $name,
+                'rating' => $rating,
+                'comment' => $comment
+            ]);
+            // Optional: Redirect to avoid resubmission on refresh
+            wp_redirect(add_query_arg('review_submitted', '1', wp_get_referer()));
+            exit;
+        }
+    }
+});
+
+// Shortcode: [submit_review_form]
+add_shortcode('submit_review_form', function () {
+    ob_start();
+
+    if (isset($_GET['review_submitted'])) {
+        echo "<div style='color: green; text-align: center; font-weight: bold; margin-bottom: 15px;'>Thank you for your review!</div>";
+    }
+    ?>
+
+    <div id="review-form-container" style="display: none; margin-top: 20px; max-width: 900px; margin-left: auto; margin-right: auto; padding: 20px; background: #f9f9f9; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+        <form method="post" class="review-form" style="display: flex; flex-direction: column; gap: 15px;">
+            <input type="hidden" name="page_id" value="<?php echo get_the_ID(); ?>" />
+
+            <input type="text" name="review_name" placeholder="Your Name" required
+                style="padding: 12px 15px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px;" />
+            
+            <input type="number" name="review_rating" min="1" max="5" placeholder="Rating (1-5)" required
+                style="padding: 12px 15px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px;" />
+            
+            <textarea name="review_comment" placeholder="Your Review" required
+                style="padding: 12px 15px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; resize: vertical; min-height: 120px;"></textarea>
+            
+            <input type="submit" name="submit_review" value="Submit Review"
+                style="background: #0073aa; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 8px; cursor: pointer; transition: background 0.3s ease;" 
+                onmouseover="this.style.background='#005f8d'" onmouseout="this.style.background='#0073aa'" />
+        </form>
+    </div>
+
+    <?php
+    return ob_get_clean();
+});
+
+// Shortcode: [show_reviews]
+add_shortcode('show_reviews', function () {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'custom_reviews';
+    $page_id = get_the_ID();
+    $reviews = $wpdb->get_results(
+        $wpdb->prepare("SELECT * FROM $table_name WHERE page_id = %d ORDER BY created_at DESC", $page_id)
+    );
+
+    if (empty($reviews)) {
+        return "<p style='text-align: center;'></p>";
+    }
+
+    ob_start();
+    ?>
+    <style>
+        .review-box {
+            padding: 15px;
+			padding-left:0px !important;
+            margin-bottom: 20px;
+            background: #fff;
+          
+            
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .review-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .stars {
+            color: #f5b301;
+            margin-right: 8px;
+            font-size: 18px;
+        }
+        .review-name {
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .review-comment {
+            font-size: 15px;
+            color: #333;
+            line-height: 1.5;
+        }
+    </style>
+    <div class="all-reviews">
+        <?php foreach ($reviews as $review): ?>
+            <div class="review-box">
+                <div class="review-header">
+                    <div class="stars">
+                        <?php for ($i = 1; $i <= 5; $i++): ?>
+                            <?php echo $i <= $review->rating ? '⭐' : '☆'; ?>
+                        <?php endfor; ?>
+                    </div>
+                    <div class="review-name"><?php echo esc_html($review->name); ?></div>
+                </div>
+                <div class="review-comment"><?php echo esc_html($review->comment); ?></div>
+            </div>
+        <?php endforeach; ?>
+    </div>
+    <?php
+    return ob_get_clean();
+});
+
+
+// remove review table from database genrated by above function ---------------------------------------------------------------------------------------
+
+// Run this ONCE to delete the 'custom_reviews' table. Just uncomment and reload any page.
+
+// add_action('init', function () {
+//     global $wpdb;
+//     $table_name = $wpdb->prefix . 'custom_reviews';
+
+//     // Delete the table if it exists
+//     $wpdb->query("DROP TABLE IF EXISTS $table_name");
+
+//     // Optional: confirm it worked (shows in page source or debug log)
+//     // echo "Table $table_name deleted.";
+// });
+
+
+
+
+?> 
+

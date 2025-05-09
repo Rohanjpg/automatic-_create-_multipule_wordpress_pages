@@ -1,0 +1,127 @@
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  function hideSectionIfEmpty(contentId, labelClass, placeholder = "", isLink = false) {
+      const contentEl = document.getElementById(contentId);
+      const labelEl = document.querySelector("." + labelClass);
+
+      if (contentEl) {
+        const text = contentEl.innerText?.trim() || "";
+        const href = isLink ? contentEl.getAttribute("href")?.trim() : null;
+
+        const isEmpty =
+          !text ||
+          text === placeholder ||
+          text.includes("{{") ||
+          (isLink && (!href || href === placeholder || href.includes("{{")));
+
+        if (isEmpty) {
+          contentEl.style.display = "none";
+          if (labelEl) labelEl.style.display = "none";
+        }
+      }
+  }
+
+  hideSectionIfEmpty("current_business", "current_business", "{{name}}");
+  hideSectionIfEmpty("current_number", "current_number", "{{phone}}");
+  hideSectionIfEmpty("current_website", "current_website", "{{website}}", true);
+  hideSectionIfEmpty("current_email", "current_email", "{{email}}");
+  hideSectionIfEmpty("current_address", "current_address", "{{address}}");
+	 hideSectionIfEmpty("current_address", "current_address", "{{followers}}");
+      hideSectionIfEmpty("current_address", "current_address", "{{socialIcons}}");
+      hideSectionIfEmpty("current_address", "current_address", "{{revenue}}");
+});
+	
+
+// contect up popup
+
+	document.addEventListener("DOMContentLoaded", function () {
+  const wrapper = document.getElementById("contact_popup_wrapper");
+  const popupForm = document.getElementById("contect_popup_form");
+  const triggerForm = document.getElementById("contect_form");
+
+  if (!wrapper || !popupForm || !triggerForm) {
+    console.warn("One or more elements not found.");
+    return;
+  }
+
+  // Keep popup hidden by default
+  wrapper.style.display = "none";
+
+  // Click to show popup
+  triggerForm.addEventListener("click", function () {
+    wrapper.style.display = "block";
+  });
+
+  // Click to hide popup
+  popupForm.addEventListener("click", function () {
+    wrapper.style.display = "none";
+  });
+
+  // Optional: Ctrl+A to show popup (you can remove this if not needed)
+  // document.addEventListener("keydown", function (e) {
+  //   if (e.ctrlKey && e.key.toLowerCase() === "a") {
+  //     e.preventDefault();
+  //     wrapper.style.display = "block";
+  //   }
+  // });
+
+  console.log("Popup toggle script active (manual only).");
+});
+
+
+</script>
+
+
+
+
+<script>
+    function toggleAbout() {
+      const aboutText = document.getElementById('about-text');
+      const button = document.getElementById('read-more-btn');
+      const icon = button.querySelector('span');
+
+      if (aboutText.style.maxHeight === '100px') {
+        aboutText.style.maxHeight = '1000px'; // large enough to reveal all
+        button.innerHTML = 'Read Less <span style="display: inline-block; transform: rotate(180deg); transition: transform 0.3s;">&#9650;</span>';
+      } else {
+        aboutText.style.maxHeight = '100px';
+        button.innerHTML = 'Read More <span style="display: inline-block; transform: rotate(0deg); transition: transform 0.3s;">&#9660;</span>';
+      }
+    }
+	
+	
+// 	slider
+
+	
+	let slideIndex = 1;
+showSlides(slideIndex);
+
+// Next/previous controls
+function plusSlides(n) {
+  showSlides(slideIndex += n);
+}
+
+// Thumbnail image controls
+function currentSlide(n) {
+  showSlides(slideIndex = n);
+}
+
+function showSlides(n) {
+  let i;
+  let slides = document.getElementsByClassName("mySlides");
+  let dots = document.getElementsByClassName("dot");
+  if (n > slides.length) {slideIndex = 1}
+  if (n < 1) {slideIndex = slides.length}
+  for (i = 0; i < slides.length; i++) {
+    slides[i].style.display = "none";
+  }
+  for (i = 0; i < dots.length; i++) {
+    dots[i].className = dots[i].className.replace(" active", "");
+  }
+  slides[slideIndex-1].style.display = "block";
+  dots[slideIndex-1].className += " active";
+}
+// 	massage popup
+
+	
+</script>
